@@ -1,0 +1,51 @@
+# Byte-compiled files and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+/venv
+/.venv
+/env
+
+# PyCharm project files
+.idea/
+
+# pytest cache and temporary files
+.pytest_cache/
+*.log
+*.tmp
+.cache/
+
+# SeleniumBase logs, screenshots, and reports
+latest_logs/
+latest_reports/
+pytesthtml/
+screenshot_failures/
+
+# Coverage reports
+htmlcov/
+.coverage
+*.cover
+coverage.xml
+
+# Local configuration and environment files
+.env
+.env.*
+
+# Jupyter Notebook checkpoints (if applicable)
+.ipynb_checkpoints/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Temporary or backup files
+*.bak
+*.swp
+*.swo
+*.tmp
+~$*
+
+# pip-tools-generated lock files
+*.lock
