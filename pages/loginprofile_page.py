@@ -1,3 +1,5 @@
+from pages.autogenerator_page import AutoGeneratorPage
+
 class LoginProfilePage:
     URL = "https://prezent-uatstaging.myprezent.com/signin"
     EMAIL_INPUT = "input[id='username']"
@@ -10,6 +12,7 @@ class LoginProfilePage:
     CURRENT_SELECTION_BUTTON = """//*[@id="templates"]//button[@class="v-btn v-btn--text theme--light v-size--default select-theme active"]"""
     PROFILE_ICON = """div.right-nav-item.profile-link"""
     LOGOUT_BUTTON = """div>button.edit-profile-btn.log-out-button"""
+    AUTOGENERATOR_TAB = """//*[@name--auto="generate"]"""
 
     def login(self, sb, email, password):
 
@@ -32,6 +35,11 @@ class LoginProfilePage:
         sb.click(self.BASICS_TAB)
         sb.click(self.LOGOUT_BUTTON)
         sb.is_element_visible(self.EMAIL_INPUT)
+
+    def go_to_auto_generator(self, sb):
+        sb.click(self.AUTOGENERATOR_TAB)
+        sb.is_element_visible(AutoGeneratorPage().GENERATE_BUTTON)
+
 
 
 

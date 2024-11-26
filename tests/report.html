@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function find_all(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sort_column(elem) {
+    toggle_sort_states(elem);
+    var colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    var key;
+    if (elem.classList.contains('numeric')) {
+        key = key_num;
+    } else if (elem.classList.contains('result')) {
+        key = key_result;
+    } else {
+        key = key_alpha;
+    }
+    sort_table(elem, key(colIndex));
+}
+
+function show_all_extras() {
+    find_all('.col-result').forEach(show_extras);
+}
+
+function hide_all_extras() {
+    find_all('.col-result').forEach(hide_extras);
+}
+
+function show_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.remove("collapsed");
+    expandcollapse.classList.remove("expander");
+    expandcollapse.classList.add("collapser");
+}
+
+function hide_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.add("collapsed");
+    expandcollapse.classList.remove("collapser");
+    expandcollapse.classList.add("expander");
+}
+
+function show_filters() {
+    var filter_items = document.getElementsByClassName('filter');
+    for (var i = 0; i < filter_items.length; i++)
+        filter_items[i].hidden = false;
+}
+
+function add_collapse() {
+    // Add links for show/hide all
+    var resulttable = find('table#results-table');
+    var showhideall = document.createElement("p");
+    showhideall.innerHTML = '<a href="javascript:show_all_extras()">Show all details</a> / ' +
+                            '<a href="javascript:hide_all_extras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    find_all('.col-result').forEach(function(elem) {
+        var collapsed = get_query_parameter('collapsed') || 'Passed';
+        var extras = elem.parentNode.nextElementSibling;
+        var expandcollapse = document.createElement("span");
+        if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add("collapsed");
+            expandcollapse.classList.add("expander");
+        } else {
+            expandcollapse.classList.add("collapser");
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener("click", function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains("collapsed")) {
+                show_extras(event.currentTarget);
+            } else {
+                hide_extras(event.currentTarget);
+            }
+        });
+    })
+}
+
+function get_query_parameter(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () {
+    reset_sort_headers();
+
+    add_collapse();
+
+    show_filters();
+
+    sort_column(find('.initial-sort'));
+
+    find_all('.sortable').forEach(function(elem) {
+        elem.addEventListener("click",
+                              function(event) {
+                                  sort_column(elem);
+                              }, false)
+    });
+
+};
+
+function sort_table(clicked, key_func) {
+    var rows = find_all('.results-table-row');
+    var reversed = !clicked.classList.contains('asc');
+    var sorted_rows = sort(rows, key_func, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    var thead = document.getElementById("results-table-head");
+    document.getElementById('results-table').remove();
+    var parent = document.createElement("table");
+    parent.id = "results-table";
+    parent.appendChild(thead);
+    sorted_rows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName("BODY")[0].appendChild(parent);
+}
+
+function sort(items, key_func, reversed) {
+    var sort_array = items.map(function(item, i) {
+        return [key_func(item), i];
+    });
+
+    sort_array.sort(function(a, b) {
+        var key_a = a[0];
+        var key_b = b[0];
+
+        if (key_a == key_b) return 0;
+
+        if (reversed) {
+            return (key_a < key_b ? 1 : -1);
+        } else {
+            return (key_a > key_b ? 1 : -1);
+        }
+    });
+
+    return sort_array.map(function(item) {
+        var index = item[1];
+        return items[index];
+    });
+}
+
+function key_alpha(col_index) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[col_index].firstChild.data.toLowerCase();
+    };
+}
+
+function key_num(col_index) {
+    return function(elem) {
+        return parseFloat(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function key_result(col_index) {
+    return function(elem) {
+        var strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+                       'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function reset_sort_headers() {
+    find_all('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    find_all('.sortable').forEach(function(elem) {
+        var icon = document.createElement("div");
+        icon.className = "sort-icon";
+        icon.textContent = "vvv";
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove("desc", "active");
+        elem.classList.add("asc", "inactive");
+    });
+}
+
+function toggle_sort_states(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        reset_sort_headers();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function is_all_rows_hidden(value) {
+  return value.hidden == false;
+}
+
+function filter_table(elem) {
+    var outcome_att = "data-test-result";
+    var outcome = elem.getAttribute(outcome_att);
+    class_outcome = outcome + " results-table-row";
+    var outcome_rows = document.getElementsByClassName(class_outcome);
+
+    for(var i = 0; i < outcome_rows.length; i++){
+        outcome_rows[i].hidden = !elem.checked;
+    }
+
+    var rows = find_all('.results-table-row').filter(is_all_rows_hidden);
+    var all_rows_hidden = rows.length == 0 ? true : false;
+    var not_found_message = document.getElementById("not-found-message");
+    not_found_message.hidden = !all_rows_hidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 26-Nov-2024 at 21:02:16 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v2.0.1</p>
+    <h2>Summary</h2>
+    <p>3 tests ran in 288.91 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">3 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable numeric" col="duration">Duration</th>
+          <th>Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_auto_generator.py::TestAutoGenerator::test_auto_generator</td>
+          <td class="col-duration">133.94</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stderr setup------------------------------ <br/>2024-11-26 20:57:28,737 - test_auto_generator - INFO - Log in initiated
+2024-11-26 20:57:49,240 - test_auto_generator - INFO - Log in done
+<br/> -------------------------------Captured log setup------------------------------- <br/>[32mINFO    [0m test_auto_generator:conftest.py:54 Log in initiated
+[32mINFO    [0m test_auto_generator:conftest.py:56 Log in done<br/> ------------------------------Captured stderr call------------------------------ <br/>2024-11-26 20:57:49,241 - test_auto_generator - INFO - Step 1: Log in
+2024-11-26 20:57:49,241 - test_auto_generator - INFO - Step 2: Go to Auto Generator
+2024-11-26 20:57:49,403 - test_auto_generator - INFO - Step 3: Select the 3rd suggested example from the Suggested dropdown.
+2024-11-26 20:57:49,602 - test_auto_generator - INFO - Step 4: Click Generate and wait for the process to complete.
+2024-11-26 20:59:46,537 - test_auto_generator - INFO - Step 5: Add the generated deck to Favorites.
+2024-11-26 20:59:55,483 - test_auto_generator - INFO - Step 6: Download the deck/slide.
+2024-11-26 21:00:02,515 - test_auto_generator - INFO - Step 7: log out via the Profile.
+<br/> -------------------------------Captured log call-------------------------------- <br/>[32mINFO    [0m test_auto_generator:test_auto_generator.py:10 Step 1: Log in
+[32mINFO    [0m test_auto_generator:test_auto_generator.py:11 Step 2: Go to Auto Generator
+[32mINFO    [0m test_auto_generator:test_auto_generator.py:14 Step 3: Select the 3rd suggested example from the Suggested dropdown.
+[32mINFO    [0m test_auto_generator:test_auto_generator.py:17 Step 4: Click Generate and wait for the process to complete.
+[32mINFO    [0m test_auto_generator:test_auto_generator.py:20 Step 5: Add the generated deck to Favorites.
+[32mINFO    [0m test_auto_generator:test_auto_generator.py:23 Step 6: Download the deck/slide.
+[32mINFO    [0m test_auto_generator:test_auto_generator.py:26 Step 7: log out via the Profile.<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_finger_print.py::TestFingerPrint::test_finger_print</td>
+          <td class="col-duration">92.31</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stderr setup------------------------------ <br/>2024-11-26 21:00:04,006 - test_finger_print - INFO - Log in initiated
+2024-11-26 21:00:21,804 - test_finger_print - INFO - Log in done
+<br/> -------------------------------Captured log setup------------------------------- <br/>[32mINFO    [0m test_finger_print:conftest.py:54 Log in initiated
+[32mINFO    [0m test_finger_print:conftest.py:56 Log in done<br/> ------------------------------Captured stderr call------------------------------ <br/>2024-11-26 21:00:21,804 - test_finger_print - INFO - Step 1: Log in
+2024-11-26 21:00:21,804 - test_finger_print - INFO - Step 2: Navigate to profile
+2024-11-26 21:00:21,905 - test_finger_print - INFO - Step 3: Click fingerprint tab
+2024-11-26 21:00:22,146 - test_finger_print - INFO - Step 4: Click on Re-take Fingerprint and complete the steps.
+2024-11-26 21:01:31,450 - test_finger_print - INFO - *****{&#x27;Which slide do you like more?\nThis helps us understand your image preferences&#x27;: 2, &#x27;Which slide do you like more?\nThis choice helps us learn about your color preferences&#x27;: 2, &#x27;Which slide do you like more?\nThis choice helps us learn about your illustration preferences&#x27;: 2, &#x27;Which slide makes a better argument?\nThis helps us understand your preference for logical arguments&#x27;: 2, &#x27;Which slide is more convincing to you?\nThis choice helps us learn your data preferences&#x27;: 2, &#x27;Which is a better way to present the data?\nThis helps us understand how you like to visualize data&#x27;: 2, &#x27;&#x27;: 0, &#x27;When others present to you,\nwhat are some of your top preferences they should know?\nWe will share this information with your colleagues,\nso they can build presentations that you will love!&#x27;: [&#x27;Start with an Executive Summary&#x27;, &#x27;Label all charts&#x27;, &#x27;$M instead of $mm&#x27;, &#x27;State objective upfront&#x27;, &#x27;All text &gt; 14 pt font&#x27;, &#x27;Send deck a day in advance&#x27;, &#x27;Action-oriented titles&#x27;, &#x27;3 minutes per slide&#x27;, &#x27;Pause for questions&#x27;, &#x27;Leave 50% time for questions&#x27;, &#x27;Footnotes matter&#x27;, &#x27;No animations, please&#x27;], &#x27;Which industry do you work in?\nWhy we ask&#x27;: [&#x27;Chemical&#x27;, &#x27;Consumer Durables&#x27;, &#x27;Healthcare&#x27;, &#x27;Hi-Tech&#x27;, &#x27;Insurance&#x27;], &#x27;Which function do you work in?\nWhy we ask&#x27;: [&#x27;Clinical Development&#x27;, &#x27;Commercial or BU&#x27;, &#x27;Communications or Investor Relations&#x27;, &#x27;Customer Success or Customer Experience&#x27;, &#x27;Design&#x27;, &#x27;Engineering or IT&#x27;, &#x27;Finance&#x27;, &#x27;Human Resources&#x27;, &#x27;Learning and Training&#x27;, &#x27;Legal or Regulatory&#x27;, &#x27;Managed Care, Payer, or HEOR&#x27;, &#x27;Manufacturing&#x27;, &#x27;Marketing&#x27;, &#x27;Medical Affairs&#x27;, &#x27;Operations&#x27;, &#x27;Partnerships&#x27;, &#x27;Platform&#x27;, &#x27;Product or Portfolio Management&#x27;, &#x27;Research and Development&#x27;, &#x27;Sales&#x27;, &#x27;Services&#x27;, &#x27;Statistics, Analytics and Data Science&#x27;, &#x27;Strategy, Biz Ops, and Business Development&#x27;, &#x27;Support&#x27;, &#x27;Thought Leadership&#x27;], &#x27;Which group do you work in?\nWhy we ask&#x27;: [&#x27;Clinical Operations&#x27;, &#x27;Clinical Pharmacology&#x27;, &#x27;Clinical Quality Assurance&#x27;, &#x27;Clinical Research&#x27;, &#x27;Clinical Supplies Management&#x27;, &#x27;Clinical Trial Management Systems&#x27;, &#x27;Data Management and Biostatistics&#x27;, &#x27;Medical Affairs&#x27;, &#x27;Pharmacovigilance and Drug Safety&#x27;, &#x27;Regulatory Affairs&#x27;], &#x27;Which region do you focus on?\nWhy we ask&#x27;: [&#x27;Africa&#x27;, &#x27;Asia&#x27;, &#x27;Europe&#x27;, &#x27;Global&#x27;, &#x27;North America&#x27;, &#x27;Oceania&#x27;, &#x27;South America&#x27;]}******
+2024-11-26 21:01:46,257 - test_finger_print - INFO - Step 5: Click Go Back to Prezent and then go to Profile and log out.
+2024-11-26 21:01:52,737 - test_finger_print - INFO - Step 6: log out via the Profile.
+<br/> -------------------------------Captured log call-------------------------------- <br/>[32mINFO    [0m test_finger_print:test_finger_print.py:12 Step 1: Log in
+[32mINFO    [0m test_finger_print:test_finger_print.py:13 Step 2: Navigate to profile
+[32mINFO    [0m test_finger_print:test_finger_print.py:16 Step 3: Click fingerprint tab
+[32mINFO    [0m test_finger_print:test_finger_print.py:19 Step 4: Click on Re-take Fingerprint and complete the steps.
+[32mINFO    [0m test_finger_print:fingerprint_page.py:168 *****{&#x27;Which slide do you like more?\nThis helps us understand your image preferences&#x27;: 2, &#x27;Which slide do you like more?\nThis choice helps us learn about your color preferences&#x27;: 2, &#x27;Which slide do you like more?\nThis choice helps us learn about your illustration preferences&#x27;: 2, &#x27;Which slide makes a better argument?\nThis helps us understand your preference for logical arguments&#x27;: 2, &#x27;Which slide is more convincing to you?\nThis choice helps us learn your data preferences&#x27;: 2, &#x27;Which is a better way to present the data?\nThis helps us understand how you like to visualize data&#x27;: 2, &#x27;&#x27;: 0, &#x27;When others present to you,\nwhat are some of your top preferences they should know?\nWe will share this information with your colleagues,\nso they can build presentations that you will love!&#x27;: [&#x27;Start with an Executive Summary&#x27;, &#x27;Label all charts&#x27;, &#x27;$M instead of $mm&#x27;, &#x27;State objective upfront&#x27;, &#x27;All text &gt; 14 pt font&#x27;, &#x27;Send deck a day in advance&#x27;, &#x27;Action-oriented titles&#x27;, &#x27;3 minutes per slide&#x27;, &#x27;Pause for questions&#x27;, &#x27;Leave 50% time for questions&#x27;, &#x27;Footnotes matter&#x27;, &#x27;No animations, please&#x27;], &#x27;Which industry do you work in?\nWhy we ask&#x27;: [&#x27;Chemical&#x27;, &#x27;Consumer Durables&#x27;, &#x27;Healthcare&#x27;, &#x27;Hi-Tech&#x27;, &#x27;Insurance&#x27;], &#x27;Which function do you work in?\nWhy we ask&#x27;: [&#x27;Clinical Development&#x27;, &#x27;Commercial or BU&#x27;, &#x27;Communications or Investor Relations&#x27;, &#x27;Customer Success or Customer Experience&#x27;, &#x27;Design&#x27;, &#x27;Engineering or IT&#x27;, &#x27;Finance&#x27;, &#x27;Human Resources&#x27;, &#x27;Learning and Training&#x27;, &#x27;Legal or Regulatory&#x27;, &#x27;Managed Care, Payer, or HEOR&#x27;, &#x27;Manufacturing&#x27;, &#x27;Marketing&#x27;, &#x27;Medical Affairs&#x27;, &#x27;Operations&#x27;, &#x27;Partnerships&#x27;, &#x27;Platform&#x27;, &#x27;Product or Portfolio Management&#x27;, &#x27;Research and Development&#x27;, &#x27;Sales&#x27;, &#x27;Services&#x27;, &#x27;Statistics, Analytics and Data Science&#x27;, &#x27;Strategy, Biz Ops, and Business Development&#x27;, &#x27;Support&#x27;, &#x27;Thought Leadership&#x27;], &#x27;Which group do you work in?\nWhy we ask&#x27;: [&#x27;Clinical Operations&#x27;, &#x27;Clinical Pharmacology&#x27;, &#x27;Clinical Quality Assurance&#x27;, &#x27;Clinical Research&#x27;, &#x27;Clinical Supplies Management&#x27;, &#x27;Clinical Trial Management Systems&#x27;, &#x27;Data Management and Biostatistics&#x27;, &#x27;Medical Affairs&#x27;, &#x27;Pharmacovigilance and Drug Safety&#x27;, &#x27;Regulatory Affairs&#x27;], &#x27;Which region do you focus on?\nWhy we ask&#x27;: [&#x27;Africa&#x27;, &#x27;Asia&#x27;, &#x27;Europe&#x27;, &#x27;Global&#x27;, &#x27;North America&#x27;, &#x27;Oceania&#x27;, &#x27;South America&#x27;]}******
+[32mINFO    [0m test_finger_print:test_finger_print.py:23 Step 5: Click Go Back to Prezent and then go to Profile and log out.
+[32mINFO    [0m test_finger_print:test_finger_print.py:26 Step 6: log out via the Profile.<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_login_profile.py::TestLoginProfile::test_login_and_fetch_templates</td>
+          <td class="col-duration">21.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>2024-11-26 21:01:54,911 - test_login_and_fetch_templates - INFO - Step 1: Log in
+2024-11-26 21:02:13,008 - test_login_and_fetch_templates - INFO - Logged in successfully.
+2024-11-26 21:02:13,008 - test_login_and_fetch_templates - INFO - Step 2: Navigate to profile
+2024-11-26 21:02:13,109 - test_login_and_fetch_templates - INFO - Step 3: Fetching first five templates
+2024-11-26 21:02:15,828 - test_login_and_fetch_templates - INFO - First five templates: [&#x27;Prezent Test 4&#x27;, &#x27;Prezent Corporate&#x27;, &#x27;Prezent Corporate 2022&#x27;, &#x27;Standard Energize&#x27;, &#x27;Standard Evolve&#x27;]
+2024-11-26 21:02:15,828 - test_login_and_fetch_templates - INFO - Step 4: Fetch the active template
+2024-11-26 21:02:15,863 - test_login_and_fetch_templates - INFO - Active template: Prezent Test 4
+2024-11-26 21:02:15,863 - test_login_and_fetch_templates - INFO - Step 5: Log out
+2024-11-26 21:02:16,146 - test_login_and_fetch_templates - INFO - **********Test completed successfully.***********
+<br/> -------------------------------Captured log call-------------------------------- <br/>[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:20 Step 1: Log in
+[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:22 Logged in successfully.
+[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:24 Step 2: Navigate to profile
+[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:27 Step 3: Fetching first five templates
+[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:30 First five templates: [&#x27;Prezent Test 4&#x27;, &#x27;Prezent Corporate&#x27;, &#x27;Prezent Corporate 2022&#x27;, &#x27;Standard Energize&#x27;, &#x27;Standard Evolve&#x27;]
+[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:33 Step 4: Fetch the active template
+[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:35 Active template: Prezent Test 4
+[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:37 Step 5: Log out
+[32mINFO    [0m test_login_and_fetch_templates:test_login_profile.py:39 **********Test completed successfully.***********<br/></div></td></tr></tbody></table></body></html>
