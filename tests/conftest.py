@@ -40,7 +40,7 @@ def logger(request):
         logger.removeHandler(handler)
 
 @pytest.fixture(scope="function")
-def Login_logout_fixture(sb, logger):
+def Login_fixture(sb, logger):
 
     SERVICE_NAME = "prezent_ai"
     email = keyring.get_password(SERVICE_NAME, "LOGIN_EMAIL")
@@ -54,8 +54,9 @@ def Login_logout_fixture(sb, logger):
     logger.info("Log in initiated")
     loginprofile.login(sb, email, password)
     logger.info("Log in done")
-    # yield loginprofile
-    # loginprofile.logout(sb)
-
-
-
+@pytest.fixture(scope="function")
+def logout_fixture(sb, logger):
+    yield
+    loginprofile = LoginProfilePage()
+    loginprofile.logout(sb)
+    logger.info("Logout done")
